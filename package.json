@@ -1,0 +1,24 @@
+{
+  "name": "urja-meter-api",
+  "version": "1.0.0",
+  "description": "A clean, documented REST API (plus a React client) in front of the legacy Urja Meter Ops portal.",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client",
+    "start": "npm run start -w server",
+    "test": "npm test -w server",
+    "openapi": "npm run openapi -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

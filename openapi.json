@@ -1,0 +1,1558 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Urja Meter API",
+    "version": "1.0.0",
+    "description": "A clean, read-only API over the Urja Meter Ops portal: meters, their place in the distribution network, and their consumption. Timestamps are IST (+05:30). Errors are RFC 9457 problem+json. See PROTOCOL.md for how the portal works underneath."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4000"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "HierarchyNode": {
+        "type": "object",
+        "required": [
+          "id",
+          "level",
+          "code",
+          "name",
+          "meterCount",
+          "statusCounts",
+          "children"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Path-scoped id, e.g. \"Z-01/C-04/D-10\". Codes alone are not unique.",
+            "example": "Z-01/C-04"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "zone",
+              "circle",
+              "division",
+              "subdivision",
+              "substation",
+              "feeder",
+              "transformer"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "meterCount": {
+            "type": "integer"
+          },
+          "statusCounts": {
+            "$ref": "#/components/schemas/StatusCounts"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HierarchyNode"
+            }
+          }
+        }
+      },
+      "HierarchyTree": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HierarchyNode"
+            }
+          }
+        }
+      },
+      "StatusCounts": {
+        "type": "object",
+        "properties": {
+          "installed": {
+            "type": "integer"
+          },
+          "faulty": {
+            "type": "integer"
+          },
+          "decommissioned": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "installed",
+          "faulty",
+          "decommissioned"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded"
+            ]
+          },
+          "catalog": {
+            "type": "object",
+            "properties": {
+              "syncedAt": {
+                "type": "string",
+                "nullable": true
+              },
+              "ageSeconds": {
+                "type": "number",
+                "nullable": true
+              },
+              "stale": {
+                "type": "boolean"
+              },
+              "syncing": {
+                "type": "boolean"
+              },
+              "lastError": {
+                "type": "string",
+                "nullable": true
+              }
+            },
+            "required": [
+              "syncedAt",
+              "ageSeconds",
+              "stale",
+              "syncing",
+              "lastError"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "catalog"
+        ]
+      },
+      "MeterPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Meter"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "page",
+          "pageSize",
+          "total"
+        ]
+      },
+      "Meter": {
+        "type": "object",
+        "properties": {
+          "meterId": {
+            "type": "string",
+            "example": "J100004"
+          },
+          "serialNo": {
+            "type": "string",
+            "example": "SE65293"
+          },
+          "make": {
+            "type": "string",
+            "example": "Genus"
+          },
+          "phase": {
+            "$ref": "#/components/schemas/Phase"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MeterStatus"
+          },
+          "installationType": {
+            "$ref": "#/components/schemas/InstallationType"
+          },
+          "recordFormat": {
+            "type": "string",
+            "description": "Portal-internal record format (\"legacy\" or \"v2\").",
+            "example": "v2"
+          },
+          "transformerCode": {
+            "type": "string",
+            "example": "DT-005"
+          },
+          "network": {
+            "$ref": "#/components/schemas/NetworkPath"
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "lat": {
+                "type": "number"
+              },
+              "lng": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "lat",
+              "lng"
+            ]
+          },
+          "distanceKm": {
+            "type": "number",
+            "description": "Only present when `near` was given."
+          }
+        },
+        "required": [
+          "meterId",
+          "serialNo",
+          "make",
+          "phase",
+          "status",
+          "installationType",
+          "recordFormat",
+          "transformerCode",
+          "network",
+          "location"
+        ]
+      },
+      "Phase": {
+        "type": "string",
+        "enum": [
+          "single",
+          "three"
+        ]
+      },
+      "MeterStatus": {
+        "type": "string",
+        "enum": [
+          "installed",
+          "faulty",
+          "decommissioned"
+        ]
+      },
+      "InstallationType": {
+        "type": "string",
+        "enum": [
+          "whole_current",
+          "ct_operated"
+        ]
+      },
+      "NetworkPath": {
+        "type": "object",
+        "properties": {
+          "zone": {
+            "$ref": "#/components/schemas/NetworkNode"
+          },
+          "circle": {
+            "$ref": "#/components/schemas/NetworkNode"
+          },
+          "division": {
+            "$ref": "#/components/schemas/NetworkNode"
+          },
+          "subdivision": {
+            "$ref": "#/components/schemas/NetworkNode"
+          },
+          "substation": {
+            "$ref": "#/components/schemas/NetworkNode"
+          },
+          "feeder": {
+            "$ref": "#/components/schemas/NetworkNode"
+          },
+          "transformer": {
+            "$ref": "#/components/schemas/NetworkNode"
+          }
+        },
+        "required": [
+          "zone",
+          "circle",
+          "division",
+          "subdivision",
+          "substation",
+          "feeder",
+          "transformer"
+        ],
+        "description": "Where the meter sits, from zone down to its distribution transformer."
+      },
+      "NetworkNode": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "example": {
+          "code": "F-001",
+          "name": "Feeder 1"
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
+        "description": "RFC 9457 problem details."
+      },
+      "ReadingsResponse": {
+        "type": "object",
+        "properties": {
+          "meterId": {
+            "type": "string"
+          },
+          "interval": {
+            "$ref": "#/components/schemas/Interval"
+          },
+          "fetchedAt": {
+            "type": "string",
+            "description": "When we pulled this window from the portal."
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "True if the portal was unreachable and an older cached copy was served."
+          },
+          "readings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Reading"
+            }
+          },
+          "dropped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DroppedRow"
+            },
+            "description": "Portal rows we discarded and why."
+          }
+        },
+        "required": [
+          "meterId",
+          "interval",
+          "fetchedAt",
+          "stale",
+          "readings",
+          "dropped"
+        ]
+      },
+      "Interval": {
+        "type": "string",
+        "enum": [
+          "PT30M",
+          "P1D",
+          "irregular",
+          "unknown"
+        ],
+        "description": "ISO-8601 duration between readings. Meters report half-hourly or daily."
+      },
+      "Reading": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "example": "2026-06-01T00:30:00+05:30"
+          },
+          "kwh": {
+            "type": "number",
+            "nullable": true,
+            "description": "Cumulative kWh register."
+          },
+          "kvah": {
+            "type": "number",
+            "nullable": true,
+            "description": "Cumulative kVAh register."
+          },
+          "voltageR": {
+            "type": "number",
+            "nullable": true,
+            "description": "R-phase voltage (V)."
+          }
+        },
+        "required": [
+          "timestamp",
+          "kwh",
+          "kvah",
+          "voltageR"
+        ]
+      },
+      "DroppedRow": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "reason"
+        ]
+      },
+      "ConsumptionResponse": {
+        "type": "object",
+        "properties": {
+          "meterId": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MeterStatus"
+          },
+          "interval": {
+            "$ref": "#/components/schemas/Interval"
+          },
+          "fetchedAt": {
+            "type": "string",
+            "description": "When we pulled this window from the portal."
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "True if the portal was unreachable and an older cached copy was served."
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyConsumption"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ConsumptionSummary"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "meterId",
+          "status",
+          "interval",
+          "fetchedAt",
+          "stale",
+          "days",
+          "summary",
+          "warnings"
+        ]
+      },
+      "DailyConsumption": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "example": "2026-06-01"
+          },
+          "kwh": {
+            "type": "number"
+          },
+          "kvah": {
+            "type": "number"
+          },
+          "intervals": {
+            "type": "integer"
+          },
+          "complete": {
+            "type": "boolean",
+            "description": "False when some intervals of the day are missing (e.g. the last day of the window)."
+          }
+        },
+        "required": [
+          "date",
+          "kwh",
+          "kvah",
+          "intervals",
+          "complete"
+        ]
+      },
+      "ConsumptionSummary": {
+        "type": "object",
+        "properties": {
+          "readingCount": {
+            "type": "integer"
+          },
+          "firstReadingAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastReadingAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalKwh": {
+            "type": "number"
+          },
+          "totalKvah": {
+            "type": "number"
+          },
+          "avgDailyKwh": {
+            "type": "number",
+            "nullable": true
+          },
+          "powerFactor": {
+            "type": "number",
+            "nullable": true
+          },
+          "voltageR": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "avg": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "min",
+              "max",
+              "avg"
+            ]
+          }
+        },
+        "required": [
+          "readingCount",
+          "firstReadingAt",
+          "lastReadingAt",
+          "totalKwh",
+          "totalKvah",
+          "avgDailyKwh",
+          "powerFactor",
+          "voltageR"
+        ]
+      },
+      "TransformerList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Transformer"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "total"
+        ]
+      },
+      "Transformer": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "DT-007"
+          },
+          "name": {
+            "type": "string",
+            "example": "Sanganer DT 7"
+          },
+          "feederCode": {
+            "type": "string"
+          },
+          "capacityKva": {
+            "type": "number"
+          },
+          "meterCount": {
+            "type": "integer"
+          },
+          "statusCounts": {
+            "$ref": "#/components/schemas/StatusCounts"
+          },
+          "network": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NetworkPath"
+              },
+              {
+                "nullable": true,
+                "description": "Path down to this transformer; null if it has no meters."
+              }
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "feederCode",
+          "capacityKva",
+          "meterCount",
+          "statusCounts",
+          "network"
+        ]
+      },
+      "TransformerDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Transformer"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "meters": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Meter"
+                }
+              }
+            },
+            "required": [
+              "meters"
+            ]
+          }
+        ]
+      },
+      "TransformerLoad": {
+        "type": "object",
+        "properties": {
+          "transformerCode": {
+            "type": "string"
+          },
+          "capacityKva": {
+            "type": "number"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransformerLoadDay"
+            }
+          },
+          "meters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "meterId": {
+                  "type": "string"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/MeterStatus"
+                },
+                "interval": {
+                  "$ref": "#/components/schemas/Interval"
+                },
+                "kwh": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "meterId",
+                "status",
+                "interval",
+                "kwh"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "transformerCode",
+          "capacityKva",
+          "days",
+          "meters",
+          "warnings"
+        ]
+      },
+      "TransformerLoadDay": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "kwh": {
+            "type": "number"
+          },
+          "kvah": {
+            "type": "number"
+          },
+          "avgKva": {
+            "type": "number",
+            "description": "kVAh / 24 — average apparent load over the day."
+          },
+          "utilizationPct": {
+            "type": "number",
+            "description": "avgKva as a % of nameplate capacity. Averages hide peaks."
+          },
+          "metersReporting": {
+            "type": "integer"
+          },
+          "complete": {
+            "type": "boolean",
+            "description": "Every meter on the transformer had a complete day."
+          }
+        },
+        "required": [
+          "date",
+          "kwh",
+          "kvah",
+          "avgKva",
+          "utilizationPct",
+          "metersReporting",
+          "complete"
+        ]
+      },
+      "Stats": {
+        "type": "object",
+        "properties": {
+          "meters": {
+            "type": "integer"
+          },
+          "transformers": {
+            "type": "integer"
+          },
+          "syncedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "byStatus": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "byMake": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "byPhase": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "byInstallationType": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "byZone": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "meters",
+          "transformers",
+          "syncedAt",
+          "byStatus",
+          "byMake",
+          "byPhase",
+          "byInstallationType",
+          "byZone"
+        ]
+      },
+      "DataIssues": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer"
+          },
+          "byType": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataIssue"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "byType",
+          "data"
+        ]
+      },
+      "DataIssue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "missing_code",
+              "missing_name",
+              "name_conflict",
+              "path_conflict",
+              "transformer_feeder_mismatch",
+              "code_reused_across_parents",
+              "unknown_transformer"
+            ]
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "zone",
+              "circle",
+              "division",
+              "subdivision",
+              "substation",
+              "feeder",
+              "transformer"
+            ]
+          },
+          "meterId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "repaired": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "detail",
+          "repaired"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "Meta"
+        ],
+        "summary": "Service health and catalogue freshness",
+        "responses": {
+          "200": {
+            "description": "Service is up. `degraded` means the last catalogue sync failed or the copy is stale.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meters": {
+      "get": {
+        "tags": [
+          "Meters"
+        ],
+        "summary": "Search and filter meters",
+        "description": "Served from the local catalogue (synced from the portal's bulk export), so filters can be combined freely — something the portal itself cannot do. Add `near` for a distance-sorted geo search.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Case-insensitive substring of meter ID or serial number.",
+              "example": "j1000"
+            },
+            "required": false,
+            "description": "Case-insensitive substring of meter ID or serial number.",
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Filter by status (installed, faulty, decommissioned). Comma-separated for several values."
+            },
+            "required": false,
+            "description": "Filter by status (installed, faulty, decommissioned). Comma-separated for several values.",
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Filter by manufacturer (case-insensitive), e.g. Genus. Comma-separated for several values."
+            },
+            "required": false,
+            "description": "Filter by manufacturer (case-insensitive), e.g. Genus. Comma-separated for several values.",
+            "name": "make",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Phase"
+            },
+            "required": false,
+            "name": "phase",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/InstallationType"
+            },
+            "required": false,
+            "name": "installationType",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Zone code, e.g. Z-01. Same for the other network levels."
+            },
+            "required": false,
+            "description": "Zone code, e.g. Z-01. Same for the other network levels.",
+            "name": "zone",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "circle",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "division",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "subdivision",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "substation",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "example": "F-007"
+            },
+            "required": false,
+            "name": "feeder",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "example": "DT-007"
+            },
+            "required": false,
+            "name": "transformer",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^-?\\d+(\\.\\d+)?,-?\\d+(\\.\\d+)?$",
+              "description": "Sort by distance from \"lat,lng\" and include `distanceKm`.",
+              "example": "26.9124,75.7873"
+            },
+            "required": false,
+            "description": "Sort by distance from \"lat,lng\" and include `distanceKm`.",
+            "name": "near",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "maximum": 500,
+              "description": "With `near`: only meters within this radius."
+            },
+            "required": false,
+            "description": "With `near`: only meters within this radius.",
+            "name": "radiusKm",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 50
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of meters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeterPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meters/{meterId}": {
+      "get": {
+        "tags": [
+          "Meters"
+        ],
+        "summary": "One meter: nameplate, network position and location",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "J100004"
+            },
+            "required": true,
+            "name": "meterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The meter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Meter"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown meter ID (IDs are case-sensitive).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meters/{meterId}/readings": {
+      "get": {
+        "tags": [
+          "Meters"
+        ],
+        "summary": "Raw register readings for a date window",
+        "description": "Cumulative kWh/kVAh registers and R-phase voltage, as numbers, with IST timestamps. Duplicate/blank portal rows are dropped and listed in `dropped`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "J100004"
+            },
+            "required": true,
+            "name": "meterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "First day (inclusive, IST). Alone: a 7-day window starting here.",
+              "example": "2026-06-01"
+            },
+            "required": false,
+            "description": "First day (inclusive, IST). Alone: a 7-day window starting here.",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Last day (inclusive, IST). Alone: a 7-day window ending here. Neither: the latest 7 days.",
+              "example": "2026-06-30"
+            },
+            "required": false,
+            "description": "Last day (inclusive, IST). Alone: a 7-day window ending here. Neither: the latest 7 days.",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Readings, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad date window.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown meter.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal returned something unexpected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The portal is unreachable or kept rate-limiting us.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meters/{meterId}/consumption": {
+      "get": {
+        "tags": [
+          "Meters"
+        ],
+        "summary": "Daily consumption derived from the registers",
+        "description": "Works the same for half-hourly and daily meters. Includes a summary and data-quality warnings.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "J100004"
+            },
+            "required": true,
+            "name": "meterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "First day (inclusive, IST). Alone: a 7-day window starting here.",
+              "example": "2026-06-01"
+            },
+            "required": false,
+            "description": "First day (inclusive, IST). Alone: a 7-day window starting here.",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Last day (inclusive, IST). Alone: a 7-day window ending here. Neither: the latest 7 days.",
+              "example": "2026-06-30"
+            },
+            "required": false,
+            "description": "Last day (inclusive, IST). Alone: a 7-day window ending here. Neither: the latest 7 days.",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Per-day consumption.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumptionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad date window.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown meter.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal returned something unexpected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The portal is unreachable or kept rate-limiting us.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/transformers": {
+      "get": {
+        "tags": [
+          "Network"
+        ],
+        "summary": "Distribution transformers with meter counts",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "F-007"
+            },
+            "required": false,
+            "name": "feeder",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All transformers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransformerList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/transformers/{code}": {
+      "get": {
+        "tags": [
+          "Network"
+        ],
+        "summary": "One transformer and the meters on it",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "DT-007"
+            },
+            "required": true,
+            "name": "code",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The transformer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransformerDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown transformer.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/transformers/{code}/load": {
+      "get": {
+        "tags": [
+          "Network"
+        ],
+        "summary": "Daily load on a transformer vs. its capacity",
+        "description": "Sums daily consumption across the transformer's meters. Costs one portal call per meter on a cold cache.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "DT-007"
+            },
+            "required": true,
+            "name": "code",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "First day (inclusive, IST). Alone: a 7-day window starting here.",
+              "example": "2026-06-01"
+            },
+            "required": false,
+            "description": "First day (inclusive, IST). Alone: a 7-day window starting here.",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Last day (inclusive, IST). Alone: a 7-day window ending here. Neither: the latest 7 days.",
+              "example": "2026-06-30"
+            },
+            "required": false,
+            "description": "Last day (inclusive, IST). Alone: a 7-day window ending here. Neither: the latest 7 days.",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daily load.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransformerLoad"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown transformer.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal returned something unexpected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The portal is unreachable or kept rate-limiting us.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hierarchy": {
+      "get": {
+        "tags": [
+          "Network"
+        ],
+        "summary": "Zone → circle → division → subdivision → substation → feeder → transformer tree",
+        "responses": {
+          "200": {
+            "description": "The reconstructed network tree with meter counts per node.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HierarchyTree"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stats": {
+      "get": {
+        "tags": [
+          "Meta"
+        ],
+        "summary": "Fleet breakdown by status, make, phase, etc.",
+        "responses": {
+          "200": {
+            "description": "Counts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stats"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-issues": {
+      "get": {
+        "tags": [
+          "Meta"
+        ],
+        "summary": "Inconsistencies found in the portal data, and how we handled them",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "missing_code",
+                "missing_name",
+                "name_conflict",
+                "path_conflict",
+                "transformer_feeder_mismatch",
+                "code_reused_across_parents",
+                "unknown_transformer"
+              ]
+            },
+            "required": false,
+            "name": "type",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Issues.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataIssues"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

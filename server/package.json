@@ -1,0 +1,24 @@
+{
+  "name": "@urja/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "vitest run",
+    "openapi": "node scripts/generate-openapi.js"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.1.0",
+    "express": "^5.1.0",
+    "mongodb": "^6.20.0",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^10.2.3",
+    "supertest": "^7.1.4",
+    "vitest": "^3.2.4"
+  }
+}

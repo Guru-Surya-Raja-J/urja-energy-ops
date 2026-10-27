@@ -1,0 +1,68 @@
+|-- .env
+|-- .env.example
+|-- .gitignore
+|-- client
+    |-- index.html
+    |-- package.json
+    |-- public
+        |-- favicon.svg
+    |-- src
+        |-- api.js
+        |-- App.jsx
+        |-- components
+            |-- CommandPalette.jsx
+            |-- common.jsx
+            |-- DailyChart.jsx
+            |-- Logo.jsx
+            |-- MeterPanel.jsx
+        |-- hooks.js
+        |-- main.jsx
+        |-- styles.css
+        |-- views
+            |-- IssuesView.jsx
+            |-- MapView.jsx
+            |-- NetworkView.jsx
+    |-- vite.config.js
+|-- docker-compose.yml
+|-- openapi.json
+|-- package-lock.json
+|-- package.json
+|-- PROTOCOL.md
+|-- README.md
+|-- REFLECTION.md
+|-- server
+    |-- package.json
+    |-- scripts
+        |-- generate-openapi.js
+    |-- src
+        |-- api
+            |-- errors.js
+            |-- openapi.js
+            |-- routes
+                |-- meta.js
+                |-- meters.js
+                |-- transformers.js
+            |-- schemas.js
+            |-- toApiMeter.js
+        |-- app.js
+        |-- config.js
+        |-- db.js
+        |-- domain
+            |-- levels.js
+            |-- meters.js
+            |-- network.js
+            |-- readings.js
+        |-- portal
+            |-- client.js
+            |-- rateLimiter.js
+        |-- server.js
+        |-- services
+            |-- catalog.js
+            |-- readings.js
+    |-- test
+        |-- api.test.js
+        |-- fixtures.js
+        |-- network.test.js
+        |-- portalClient.test.js
+        |-- rateLimiter.test.js
+        |-- readings.test.js
